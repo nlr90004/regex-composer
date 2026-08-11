@@ -26,7 +26,7 @@ import threading
 from pathlib import Path
 
 from PySide6.QtCore import QSettings, QUrl
-from PySide6.QtGui import QDesktopServices, QIcon, QKeySequence
+from PySide6.QtGui import QDesktopServices, QGuiApplication, QIcon, QKeySequence
 from PySide6.QtWebEngineCore import QWebEnginePage, QWebEngineProfile, QWebEngineSettings
 from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWidgets import QApplication, QMainWindow, QMessageBox
@@ -164,6 +164,24 @@ class Window(QMainWindow):
 
         self._build_menu()
         self.view.setUrl(QUrl(f"http://127.0.0.1:{port}/"))
+
+        # QtWebEngine resolves prefers-color-scheme when the page loads and does
+        # not re-evaluate it afterwards, so on Auto the page keeps whatever the
+        # desktop was set to at launch. Confirmed on Ubuntu/Wayland 2026-08-11:
+        # the load-time value is correct and a relaunch picks up the new one, but
+        # a live change reaches the Qt chrome and never the content.
+        #
+        # Reloading is the whole fix. The page writes its state to localStorage
+        # continuously, so it comes back exactly as it was — and reloading
+        # unconditionally, rather than only when the page is on Auto, avoids
+        # having to ask the page what it is set to. An explicit Light or Dark
+        # choice survives the reload and simply looks like a flicker.
+        hints = QGuiApplication.styleHints()
+        if hasattr(hints, "colorSchemeChanged"):      # Qt 6.5+
+            hints.colorSchemeChanged.connect(self._reload_for_color_scheme)
+
+    def _reload_for_color_scheme(self, _scheme):
+        self.view.reload()
 
     def _build_menu(self):
         """Edit is not decoration: without it the clipboard shortcuts do not

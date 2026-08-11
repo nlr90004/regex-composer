@@ -87,4 +87,12 @@ window plumbing rather than anything conceptually hard.
 
 The same design was then ported to Linux — see `linux/` — where PySide6 and
 QtWebEngine hit the identical problem for identical reasons. Confirmed working
-on Ubuntu under Wayland, with dark mode still unverified there.
+on Ubuntu under Wayland, though the theme needed a fix to follow the desktop:
+QtWebEngine reads `prefers-color-scheme` once at page load and never again, so
+the app now reloads the view when the platform scheme changes.
+
+**Worth checking here too.** Whether `WKWebView` re-evaluates on an appearance
+change, or shares QtWebEngine's behaviour of resolving once at load. Switch
+System Settings between Light and Dark with the app open and on Auto. If the
+page does not follow, the same fix applies — observe
+`NSApp.effectiveAppearance` and reload.

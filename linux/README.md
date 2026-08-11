@@ -95,12 +95,29 @@ checkout gives you no `.desktop` file to match against, so Wayland falls back to
 a generic gear no matter what `setWindowIcon` was given. Installing is what
 fixes it, not anything in the script.
 
-What remains open:
+- ~~**Dark mode.**~~ Two separate bugs, both now fixed. Worked out on
+  Ubuntu/Wayland, 2026-08-11.
 
-- **Dark mode.** Still unverified. QtWebEngine's `prefers-color-scheme` follows
-  the platform colour scheme, and how reliably it does so varies by Qt version
-  and desktop. If the page ignores your system theme, this is the thing to look
-  at first — the page's own theme switch still works regardless.
+  **QtWebEngine resolves `prefers-color-scheme` when the page loads and never
+  re-evaluates it.** The load-time value is correct, and relaunching picks up a
+  new one, but changing the desktop's scheme while the window is open reaches
+  the Qt menu bar and the Chromium scrollbars and never the page. On Auto the
+  content simply keeps whatever the desktop was set to at launch. Fixed by
+  reloading the view on `QStyleHints.colorSchemeChanged` (Qt 6.5+); the page
+  persists to `localStorage` continuously, so the reload costs nothing.
+
+  **The page did not narrow `color-scheme` for an explicit choice.** `:root`
+  declared `light dark`, which is right for Auto but left browser-drawn widgets
+  following the system when you had picked Light or Dark yourself — dark
+  scrollbars on a light page. Fixed in `regex-builder.html`, and it affected
+  every browser, not only this app.
+
+  A warning for anyone debugging this again: Ubuntu's Appearance panel writes
+  only `'default'` and `'prefer-dark'`. Setting `color-scheme` to
+  `'prefer-light'` by hand leaves the desktop in a state its own UI does not
+  produce — neither option highlights — and the results are not representative.
+  Half an hour was spent chasing conclusions drawn in that state. Use the panel.
+
 - ~~**Wayland.**~~ Confirmed. `setDesktopFileName` gives the window an app_id
   matching `wtf.nlr.regex-composer.desktop`, and that is what the compositor
   matches on. `StartupWMClass` in the entry is for X11 and went unused here.
