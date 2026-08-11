@@ -3,7 +3,7 @@
 Build a regular expression out of labelled blocks. The pattern assembles as you
 go, runs against your test text live, and reads itself back in plain English.
 
-**Live:** https://nlr90004.github.io/regex-composer/
+**Live:** https://regex.nlr.wtf/
 
 No dependencies, no framework, no build step for the app itself — it is one HTML
 file you can open from disk.
