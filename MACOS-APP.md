@@ -82,8 +82,8 @@ window plumbing rather than anything conceptually hard.
   checked rather than argued.
 - The window remembers its size, and the layout crosses the 940px breakpoint
   cleanly when resized, since that is where the expression panel docks
-- The theme switch still follows the system, and its choice persists — it uses
-  the same storage as everything else
+- ~~The theme switch still follows the system, and its choice persists~~ —
+  **confirmed 2026-08-11**, see below
 
 The same design was then ported to Linux — see `linux/` — where PySide6 and
 QtWebEngine hit the identical problem for identical reasons. Confirmed working
@@ -91,8 +91,19 @@ on Ubuntu under Wayland, though the theme needed a fix to follow the desktop:
 QtWebEngine reads `prefers-color-scheme` once at page load and never again, so
 the app now reloads the view when the platform scheme changes.
 
-**Worth checking here too.** Whether `WKWebView` re-evaluates on an appearance
-change, or shares QtWebEngine's behaviour of resolving once at load. Switch
-System Settings between Light and Dark with the app open and on Auto. If the
-page does not follow, the same fix applies — observe
-`NSApp.effectiveAppearance` and reload.
+**`WKWebView` does not share that flaw**, checked 2026-08-11. On Auto the page
+follows System Settings live, in both directions; on an explicit Light or Dark
+it stays put regardless of what the system does, which is what the page's own
+switch is for. So no reload is needed here and none is wired up.
+
+Worth knowing the two engines differ, if this is ever ported again: WebKit
+re-evaluates `prefers-color-scheme` when the appearance changes, and
+QtWebEngine resolves it once at page load.
+
+One asymmetry on both platforms, deliberate rather than overlooked. With an
+explicit Light or Dark chosen, the window decorations still follow the desktop
+— a light page can sit inside a dark title bar. The frame belongs to the
+desktop and every other window follows it there, whereas the page's switch is a
+content preference. Connecting them would mean the container learning how the
+page stores its theme, which is a boundary worth keeping: the page does not
+know it is in an app, and the app does not know how the page works.

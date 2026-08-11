@@ -123,6 +123,15 @@ fixes it, not anything in the script.
   produce — neither option highlights — and the results are not representative.
   Half an hour was spent chasing conclusions drawn in that state. Use the panel.
 
+  One asymmetry, deliberate rather than overlooked: with an explicit Light or
+  Dark chosen in the page, the window decorations and menu bar still follow the
+  desktop, so a light page can sit inside dark chrome. The frame belongs to the
+  desktop and every other window follows it there; the page's switch is a
+  content preference. Bridging them would mean the container learning how the
+  page stores its theme — a `QWebChannel` and an injected script — and that
+  boundary is worth more than a matching title bar. The page does not know it is
+  in an app, and the app does not know how the page works.
+
 - ~~**Wayland.**~~ Confirmed. `setDesktopFileName` gives the window an app_id
   matching `wtf.nlr.regex-composer.desktop`, and that is what the compositor
   matches on. `StartupWMClass` in the entry is for X11 and went unused here.
