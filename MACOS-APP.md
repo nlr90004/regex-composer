@@ -74,9 +74,17 @@ window plumbing rather than anything conceptually hard.
 
 ## Things to check on first run
 
-- A pattern survives quitting and reopening the app — this is the whole point of
-  the loopback server, and the failure mode is silent
+- ~~A pattern survives quitting and reopening the app~~ — **confirmed
+  2026-08-11.** Blocks were still there after a ⌘Q and relaunch, which is the
+  claim this whole document rests on: the fixed port really does hold the origin
+  stable across launches, and `file://` really would have lost it. The reasoning
+  above was written before any of it existed; this is the part that had to be
+  checked rather than argued.
 - The window remembers its size, and the layout crosses the 940px breakpoint
   cleanly when resized, since that is where the expression panel docks
 - The theme switch still follows the system, and its choice persists — it uses
   the same storage as everything else
+
+The same design was then ported to Linux — see `linux/` — where PySide6 and
+QtWebEngine hit the identical problem for identical reasons. Confirmed working
+on Ubuntu under Wayland, with dark mode still unverified there.

@@ -86,16 +86,27 @@ profile is persistent rather than off-the-record; a value written to
 `regex-composer-state` is saved and restored; `window.isSecureContext` is true,
 so the copy buttons work; and window geometry survives a close and reopen.
 
-**Not tested on Linux.** What that leaves genuinely open:
+**Since run on Linux** — Ubuntu under Wayland, 2026-08-11. It launches, the
+window is themed by the desktop, and after `install.sh` the compositor resolves
+the icon from the entry. That closes two of the three questions below.
 
-- **Dark mode.** QtWebEngine's `prefers-color-scheme` follows the platform
-  colour scheme, and how reliably it does so varies by Qt version and desktop.
-  If the page ignores your system theme, this is the thing to look at first —
-  the page's own theme switch still works regardless.
-- **Wayland.** `setDesktopFileName` is what lets the compositor match the
-  window to the `.desktop` entry for its icon; under some compositors
-  `StartupWMClass` needs to match instead.
-- **Sandboxing.** QtWebEngine's zygote sandbox fails in some container and
-  hardened-kernel setups, usually with a message about `SUID sandbox`. The
-  usual escape is `QTWEBENGINE_DISABLE_SANDBOX=1`, which is worth understanding
-  before you reach for it.
+Worth knowing if the icon looks generic: running the script straight from a
+checkout gives you no `.desktop` file to match against, so Wayland falls back to
+a generic gear no matter what `setWindowIcon` was given. Installing is what
+fixes it, not anything in the script.
+
+What remains open:
+
+- **Dark mode.** Still unverified. QtWebEngine's `prefers-color-scheme` follows
+  the platform colour scheme, and how reliably it does so varies by Qt version
+  and desktop. If the page ignores your system theme, this is the thing to look
+  at first — the page's own theme switch still works regardless.
+- ~~**Wayland.**~~ Confirmed. `setDesktopFileName` gives the window an app_id
+  matching `wtf.nlr.regex-composer.desktop`, and that is what the compositor
+  matches on. `StartupWMClass` in the entry is for X11 and went unused here.
+- ~~**Sandboxing.**~~ Not an issue on a stock Ubuntu desktop — the app ran with
+  no sandbox complaint and no environment variables. Left here because the
+  failure is specific to container and hardened-kernel setups rather than to
+  the distribution: QtWebEngine's zygote sandbox announces it with a message
+  about `SUID sandbox`, and the usual escape is `QTWEBENGINE_DISABLE_SANDBOX=1`,
+  which is worth understanding before you reach for it.
