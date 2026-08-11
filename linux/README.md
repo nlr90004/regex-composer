@@ -106,6 +106,11 @@ fixes it, not anything in the script.
   reloading the view on `QStyleHints.colorSchemeChanged` (Qt 6.5+); the page
   persists to `localStorage` continuously, so the reload costs nothing.
 
+  Verified after the fix: with the app open on Auto and showing dark, switching
+  the desktop to light rethemes the window immediately. That was the failing
+  case. Only that direction was watched — the signal driving it is the same one
+  either way.
+
   **The page did not narrow `color-scheme` for an explicit choice.** `:root`
   declared `light dark`, which is right for Auto but left browser-drawn widgets
   following the system when you had picked Light or Dark yourself — dark
