@@ -91,7 +91,14 @@
 :root[data-theme="dark"] {
   /* narrow the declaration from "light dark": without this, scrollbars, form
      controls and the caret keep following the system while the page follows
-     your choice — visible as dark scrollbars on a light page */
+     your choice — visible as dark scrollbars on a light page.
+
+     How far a browser takes that is its own call, and they differ. Safari
+     extends it to the window decorations of the active tab; Chrome and Firefox
+     leave their chrome on the system scheme. Keeping it anyway: the alternative
+     is mismatched scrollbars in every browser to spare one browser's title bar,
+     and both surfaces derive from the root scheme, so there is no having one
+     without the other. */
   color-scheme: dark;
   --ground:#232136; --surface:#2a273f; --surface-2:#393552; --ink:#e0def4;
   --muted:#a3a0b8; --line:#56526e; --line-soft:#44415a;
