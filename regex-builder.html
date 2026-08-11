@@ -1,0 +1,1478 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Regex Composer</title>
+<meta name="description" content="Build a regular expression from labelled blocks. Watch the pattern assemble as you go, test it against real text, and read back what it actually does in plain English.">
+
+<!-- link previews -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="Regex Composer">
+<meta property="og:description" content="Build a regular expression from labelled blocks, test it live, and read what it does in plain English.">
+<meta name="twitter:card" content="summary">
+
+<!-- browser chrome follows the theme, same two grounds as the page -->
+<meta name="theme-color" content="#faf4ed" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#232136" media="(prefers-color-scheme: dark)">
+
+<!-- inline SVG so the page stays a single file: /·/ in Rosé Pine gold and foam -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23232136'/%3E%3Cpath d='M13 7 L8 25' stroke='%23f6c177' stroke-width='3' stroke-linecap='round'/%3E%3Cpath d='M25 7 L20 25' stroke='%23f6c177' stroke-width='3' stroke-linecap='round'/%3E%3Ccircle cx='16.5' cy='16' r='2.3' fill='%239ccfd8'/%3E%3C/svg%3E">
+<style>
+/*
+  Styling is entirely token-driven: components reference the custom properties
+  defined in :root and never a raw color. That is what makes a theme swap ~20
+  values instead of a second stylesheet.
+
+  Palette is Rosé Pine — Dawn for light, Moon for dark. Dawn's accents are
+  adjusted from the published values so 12px tokens clear 4.5:1 on the panel
+  background — darkened for Dawn, and two of Moon's lightened for the same
+  reason. Every other hex is the palette as-is, each commented with its origin.
+
+  Theme resolution, in precedence order:
+    1. :root[data-theme="light"|"dark"]   explicit choice, set by the switch
+    2. @media (prefers-color-scheme:dark)  the system, when no choice is stored
+    3. :root                               light, the base declaration
+*/
+
+/* ── tokens ──────────────────────────────────────────────────────────── */
+:root {
+  color-scheme: light dark;
+
+  --ground:    #faf4ed;   /* base */
+  --surface:   #fffaf3;   /* surface */
+  --surface-2: #f2e9e1;   /* overlay */
+  --ink:       #575279;   /* text */
+  --muted:     #696680;   /* subtle, darkened */
+  --line:      #cecacd;   /* highlight high */
+  --line-soft: #dfdad9;   /* highlight med */
+
+  --tok-literal: #575279; /* text */
+  --tok-class:   #406f77; /* foam, darkened */
+  --tok-choice:  #286983; /* pine */
+  --tok-anchor:  #8c5e1f; /* gold, darkened */
+  --tok-raw:     #726086; /* iris, darkened */
+
+  --hit-bg:    #f6dcba;   /* gold, washed into base */
+  --hit-ink:   #575279;
+  --bad:       #975366;   /* love, darkened */
+
+  --focus:     #907aa9;   /* iris */
+
+  --mono: ui-monospace, "SF Mono", "Menlo", "JetBrains Mono", "Cascadia Mono", "Roboto Mono", Consolas, monospace;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+
+  --r: 6px;
+  --control-h: 34px;   /* selects and inputs render at different intrinsic heights — pin them */
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ground:    #232136;   /* base */
+    --surface:   #2a273f;   /* surface */
+    --surface-2: #393552;   /* overlay */
+    --ink:       #e0def4;   /* text */
+    --muted:     #a3a0b8;   /* subtle, lightened */
+    --line:      #56526e;   /* highlight high */
+    --line-soft: #44415a;   /* highlight med */
+
+    --tok-literal: #e0def4; /* text */
+    --tok-class:   #9ccfd8; /* foam */
+    --tok-choice:  #6eabc4; /* pine, lightened */
+    --tok-anchor:  #f6c177; /* gold */
+    --tok-raw:     #c4a7e7; /* iris */
+
+    --hit-bg:    #776150;   /* gold, washed into base */
+    --hit-ink:   #e0def4;
+    --bad:       #eb6f92;   /* love */
+
+    --focus:     #c4a7e7;   /* iris */
+  }
+}
+:root[data-theme="dark"] {
+  --ground:#232136; --surface:#2a273f; --surface-2:#393552; --ink:#e0def4;
+  --muted:#a3a0b8; --line:#56526e; --line-soft:#44415a;
+  --tok-literal:#e0def4; --tok-class:#9ccfd8; --tok-choice:#6eabc4;
+  --tok-anchor:#f6c177; --tok-raw:#c4a7e7;
+  --hit-bg:#776150; --hit-ink:#e0def4; --bad:#eb6f92; --focus:#c4a7e7;
+}
+:root[data-theme="light"] {
+  --ground:#faf4ed; --surface:#fffaf3; --surface-2:#f2e9e1; --ink:#575279;
+  --muted:#696680; --line:#cecacd; --line-soft:#dfdad9;
+  --tok-literal:#575279; --tok-class:#406f77; --tok-choice:#286983;
+  --tok-anchor:#8c5e1f; --tok-raw:#726086;
+  --hit-bg:#f6dcba; --hit-ink:#575279; --bad:#975366; --focus:#907aa9;
+}
+
+/* ── base ────────────────────────────────────────────────────────────── */
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 16.5px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 3px; }
+.sr {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+.wrap { max-width: 1180px; margin: 0 auto; padding: 32px 24px 72px; }
+
+header.page { display: flex; align-items: flex-start; gap: 16px; flex-wrap: wrap; margin-bottom: 26px; }
+.page-titles { flex: 1 1 340px; min-width: 0; }
+
+/* system by default, with an explicit override */
+.theme-switch { display: flex; margin-left: auto; }
+.theme-switch .btn { border-radius: 0; margin-left: -1px; }
+.theme-switch .btn:first-child { border-radius: var(--r) 0 0 var(--r); margin-left: 0; }
+.theme-switch .btn:last-child { border-radius: 0 var(--r) var(--r) 0; }
+.theme-switch .btn[aria-pressed="true"] {
+  background: var(--ink); color: var(--surface); border-color: var(--ink);
+  position: relative; z-index: 1;
+}
+.eyebrow {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 6px;
+}
+h1 {
+  font-family: var(--mono);
+  font-size: clamp(29px, 4vw, 41px);
+  letter-spacing: -.02em;
+  font-weight: 600;
+  margin: 0 0 6px;
+  text-wrap: balance;
+}
+h1 .slash { color: var(--muted); font-weight: 400; }
+header.page p { margin: 0; color: var(--muted); max-width: 58ch; }
+
+.layout { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 22px; align-items: start; }
+@media (max-width: 940px) {
+  .layout { grid-template-columns: minmax(0,1fr); }
+  /* one column means the expression scrolls away as you edit — dock it instead */
+  .panel.expression {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
+    border-radius: 0; border-left: 0; border-right: 0; border-bottom: 0;
+    max-height: 48vh; overflow-y: auto;
+    box-shadow: 0 -8px 24px rgba(0, 0, 0, .16);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .panel.expression .panel-head { display: none; }   /* the pattern speaks for itself down here */
+  .panel.expression .panel-body { padding: 12px 13px 13px; }
+  .panel.expression .expr { padding: 10px; min-height: 0; }
+  .panel.expression + .panel { margin-top: 0; }
+}
+/* long block lists outrun the viewport — keep the expression in sight while editing */
+@media (min-width: 941px) {
+  .layout > .inspector {
+    position: sticky;
+    top: 20px;
+    max-height: calc(100vh - 40px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+}
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+}
+.panel + .panel { margin-top: 16px; }
+.panel-head {
+  display: flex; align-items: baseline; gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.panel-head h2 {
+  font-family: var(--mono);
+  font-size: 12px; letter-spacing: .14em; text-transform: uppercase;
+  font-weight: 600; margin: 0; color: var(--ink);
+}
+.panel-head .note { margin-left: auto; font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.panel-body { padding: 14px; }
+
+/* ── controls ────────────────────────────────────────────────────────── */
+button, select, input, textarea { font: inherit; color: inherit; }
+.btn {
+  font-family: var(--mono); font-size: 13px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  padding: 5px 10px;
+  cursor: pointer;
+}
+.btn:hover { border-color: var(--muted); }
+.btn:active { transform: translateY(1px); }
+.btn.ghost { background: transparent; border-color: transparent; color: var(--muted); padding: 3px 6px; }
+.btn.ghost:hover { color: var(--ink); background: var(--surface-2); border-color: var(--line-soft); }
+
+input[type="text"], input[type="number"], select, textarea {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  padding: 5px 8px;
+}
+input[type="text"], input[type="number"], select { height: var(--control-h); }
+input[type="text"], textarea { font-family: var(--mono); font-size: 14.5px; }
+select { font-size: 14.5px; }
+textarea { width: 100%; resize: vertical; line-height: 1.55; }
+
+label.field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+label.field > span {
+  font-family: var(--mono); font-size: 11px; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--muted);
+}
+label.check {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-family: var(--mono); font-size: 13px; color: var(--muted); cursor: pointer;
+}
+label.check input { accent-color: var(--focus); }
+label.check:has(input:checked) { color: var(--ink); }
+
+/* ── block cards ─────────────────────────────────────────────────────── */
+#blocks { display: flex; flex-direction: column; gap: 10px; }
+.block {
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--stripe, var(--line));
+  border-radius: var(--r);
+  background: var(--surface-2);
+  padding: 9px 11px;
+  display: flex; flex-direction: column; gap: 9px;
+}
+/* the block you're editing, and its slice of the expression, light up together */
+.block:focus-within {
+  background: var(--surface);
+  border-color: var(--stripe);
+  box-shadow: 0 0 0 3px rgba(31, 79, 150, .16);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--stripe) 24%, transparent);
+}
+.block:focus-within .block-seq { color: var(--stripe); }
+
+/* the block a failed pattern was traced to — declared after :focus-within so it
+   still reads as broken while you are typing in it */
+.block.is-bad {
+  border-color: var(--bad);
+  box-shadow: 0 0 0 3px rgba(159, 28, 21, .16);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--bad) 22%, transparent);
+}
+.block.is-bad .block-seq, .block.is-bad .block-kind { color: var(--bad); }
+
+.block[data-kind="literal"] { --stripe: var(--tok-literal); }
+.block[data-kind="class"]   { --stripe: var(--tok-class); }
+.block[data-kind="choice"]  { --stripe: var(--tok-choice); }
+.block[data-kind="anchor"]  { --stripe: var(--tok-anchor); }
+.block[data-kind="look"]    { --stripe: var(--tok-anchor); }
+.block[data-kind="raw"]     { --stripe: var(--tok-raw); }
+
+.block-top { display: flex; align-items: center; gap: 8px; }
+.block-kind {
+  font-family: var(--mono); font-size: 11.5px; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--stripe); font-weight: 700;
+}
+.block-seq { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.block-tools { margin-left: auto; display: flex; gap: 2px; }
+
+/* bottom-align so every control sits on one line, whether or not it has a caption above it */
+.block-fields { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 9px; }
+.block label.check { min-height: var(--control-h); }
+.block-fields label.field { flex: 1 1 150px; }
+.block-fields input[type="text"] { width: 100%; }
+
+.block-foot {
+  display: flex; flex-wrap: wrap; align-items: flex-end; gap: 9px;
+  padding-top: 8px; border-top: 1px dashed var(--line-soft);
+}
+.block .count-wrap { display: none; align-items: center; gap: 5px; }
+.block[data-count="exact"] .count-wrap.exact,
+.block[data-count="range"] .count-wrap.range { display: flex; }
+.count-wrap input { width: 62px; font-family: var(--mono); font-size: 13px; }
+.count-wrap span { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+/* these beat label.field / label.check, which both set display themselves */
+.block .name-field { display: none; }
+.block[data-cap="on"] .name-field { display: flex; }
+.block .name-field input { width: 96px; }
+.block .custom-field { display: none; }
+.block[data-preset="custom"] .custom-field { display: flex; }
+
+.add-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+/* an entry point, so it sits up top — but as a slim bar, not a section */
+.starters {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 7px;
+  padding: 9px 14px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--line-soft);
+}
+.starters .btn { background: var(--surface); }
+.starters .lbl { font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.empty-note { color: var(--muted); font-size: 14.5px; padding: 6px 2px; }
+
+/* ── expression readout ──────────────────────────────────────────────── */
+.expr {
+  font-family: var(--mono);
+  font-size: clamp(16px, 2.4vw, 19px);
+  line-height: 1.7;
+  word-break: break-all;
+  background: var(--surface-2);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r);
+  padding: 12px;
+  min-height: 56px;
+}
+.expr .delim { color: var(--muted); }
+.expr .flags { color: var(--muted); }
+.expr .t-literal { color: var(--tok-literal); }
+.expr .t-class   { color: var(--tok-class); }
+.expr .t-choice  { color: var(--tok-choice); }
+.expr .t-anchor  { color: var(--tok-anchor); }
+.expr .t-look    { color: var(--tok-anchor); }
+.expr .t-raw     { color: var(--tok-raw); }
+.expr .placeholder { color: var(--muted); font-style: italic; }
+.expr .seg-bad {
+  background: rgba(159, 28, 21, .16);
+  background: color-mix(in srgb, var(--bad) 20%, transparent);
+  border-radius: 3px;
+  box-shadow: 0 2px 0 var(--bad);
+}
+.expr .seg-active {
+  background: rgba(31, 79, 150, .14);
+  background: color-mix(in srgb, currentColor 18%, transparent);
+  border-radius: 3px;
+  box-shadow: 0 2px 0 currentColor;
+}
+
+/* flags + what they do on one side, copy actions on the other, split by a rule */
+.expr-tools { display: flex; align-items: stretch; gap: 14px; margin-top: 11px; }
+.tools-left { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 7px; }
+.tools-right {
+  flex: 0 0 auto; display: flex; flex-direction: column; gap: 6px;
+  padding-left: 14px; border-left: 1px solid var(--line-soft);
+}
+.tools-right .btn { width: 100%; text-align: center; }
+/* keep this pair together — a later .narrow rule elsewhere would silently win the cascade */
+.narrow { display: none; }
+@media (max-width: 940px) {
+  .wide { display: none; }
+  .narrow { display: inline; }
+}
+.flagset { display: flex; gap: 10px; flex-wrap: wrap; }
+/* what the ticked flags actually do — the title tooltips are unreachable on touch */
+.flag-note {
+  margin: 0; font-family: var(--mono); font-size: 12px;
+  color: var(--muted); line-height: 1.55;
+}
+.flag-note:empty { display: none; }
+.flag-note .k { color: var(--ink); font-weight: 600; }
+.err {
+  margin-top: 10px; font-family: var(--mono); font-size: 13px;
+  color: var(--bad); border-left: 2px solid var(--bad); padding-left: 9px;
+}
+
+/* ── test surface ────────────────────────────────────────────────────── */
+.preview {
+  font-family: var(--mono); font-size: 14.5px; line-height: 1.6;
+  white-space: pre-wrap; word-break: break-word;
+  background: var(--surface-2);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--r);
+  padding: 10px; margin-top: 10px;
+  max-height: 210px; overflow: auto;
+}
+.preview mark { background: var(--hit-bg); color: var(--hit-ink); border-radius: 2px; padding: 0 1px; }
+.preview mark.zero { padding: 0; border-left: 2px solid var(--hit-ink); background: none; }
+.pill {
+  font-family: var(--mono); font-size: 12px;
+  border: 1px solid var(--line); border-radius: 999px;
+  padding: 1px 9px; color: var(--muted);
+}
+.pill.hot { color: var(--hit-ink); background: var(--hit-bg); border-color: transparent; }
+.pill.bad { color: var(--bad); border-color: var(--bad); }
+
+table.matches { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 13px; }
+table.matches th {
+  text-align: left; font-weight: 700; font-size: 11px; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--muted);
+  padding: 0 8px 6px 0; border-bottom: 1px solid var(--line-soft);
+}
+table.matches td { padding: 5px 8px 5px 0; border-bottom: 1px solid var(--line-soft); vertical-align: top; white-space: nowrap; }
+table.matches td.num { font-variant-numeric: tabular-nums; color: var(--muted); width: 1%; }
+/* one line per row stays scannable; the panel scrolls sideways for the rest */
+.clip {
+  display: inline-block; max-width: 24ch;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  vertical-align: bottom;
+}
+.scroll-x { overflow-x: auto; }
+
+/* numbers are real elements, not ::marker — markers sit outside the padding box under
+   flex layout and under host CSS resets, which pushes them off the panel edge */
+ol.plain {
+  list-style: none; margin: 0; padding: 0;
+  display: flex; flex-direction: column; gap: 5px; font-size: 14.5px;
+}
+ol.plain li { display: flex; gap: 9px; }
+ol.plain .n {
+  flex: 0 0 auto; min-width: 2.2em; text-align: right;
+  font-family: var(--mono); font-size: 12px; color: var(--muted);
+  padding-top: .22em; font-variant-numeric: tabular-nums;
+}
+ol.plain li.empty { color: var(--muted); }
+ol.plain code { font-family: var(--mono); font-size: 13px; background: var(--surface-2); border: 1px solid var(--line-soft); border-radius: 3px; padding: 0 3px; }
+.cap-tag { font-family: var(--mono); font-size: 11px; color: var(--tok-choice); }
+
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="page">
+    <div class="page-titles">
+      <p class="eyebrow">pattern composer</p>
+      <h1><span class="slash">/</span>regex builder<span class="slash">/g</span></h1>
+      <p>Stack up blocks, watch the expression assemble itself, and test it against real text as you go.</p>
+    </div>
+    <div class="theme-switch" role="group" aria-label="Color theme">
+      <button class="btn" data-theme-set="auto" aria-pressed="true">Auto</button>
+      <button class="btn" data-theme-set="light" aria-pressed="false">Light</button>
+      <button class="btn" data-theme-set="dark" aria-pressed="false">Dark</button>
+    </div>
+  </header>
+
+  <div class="layout">
+
+    <!-- composer -->
+    <section>
+      <div class="panel">
+        <div class="panel-head">
+          <h2>Blocks</h2>
+          <span class="note" id="blockCount">0 blocks</span>
+        </div>
+        <div class="starters">
+          <span class="lbl">Start from</span>
+          <button class="btn" data-example="email">Email</button>
+          <button class="btn" data-example="date">Date</button>
+          <button class="btn" data-example="hex">Hex color</button>
+          <button class="btn" data-example="phone">US phone</button>
+          <button class="btn" data-example="log">Log line</button>
+        </div>
+        <div class="panel-body">
+          <div id="blocks"></div>
+          <div class="add-row">
+            <button class="btn" data-add="literal">+ Text</button>
+            <button class="btn" data-add="class">+ Character</button>
+            <button class="btn" data-add="choice">+ One of</button>
+            <button class="btn" data-add="anchor">+ Anchor</button>
+            <button class="btn" data-add="look">+ Lookaround</button>
+            <button class="btn" data-add="raw">+ Raw</button>
+            <button class="btn ghost" id="clearAll">Clear</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- inspector -->
+    <section class="inspector">
+      <div class="panel expression">
+        <div class="panel-head">
+          <h2>Expression</h2>
+          <span class="note" id="lengthNote">0 chars</span>
+        </div>
+        <div class="panel-body">
+          <div class="expr" id="expr"></div>
+          <div class="expr-tools">
+           <div class="tools-left">
+            <div class="flagset">
+              <label class="check" title="global — find every match, not just the first"><input type="checkbox" data-flag="g" checked> g<span class="sr"> global</span></label>
+              <label class="check" title="ignore case"><input type="checkbox" data-flag="i"> i<span class="sr"> ignore case</span></label>
+              <label class="check" title="multiline — ^ and $ match at each line"><input type="checkbox" data-flag="m"> m<span class="sr"> multiline</span></label>
+              <label class="check" title="dot matches newline"><input type="checkbox" data-flag="s"> s<span class="sr"> dot matches newline</span></label>
+              <label class="check" title="unicode"><input type="checkbox" data-flag="u"> u<span class="sr"> unicode</span></label>
+            </div>
+            <p class="flag-note" id="flagNote"></p>
+           </div>
+           <div class="tools-right">
+            <button class="btn" id="copyFull">Copy /…/</button>
+            <button class="btn" id="copyRaw"><span class="wide">Copy pattern</span><span class="narrow">Copy raw</span></button>
+           </div>
+          </div>
+          <div id="err"></div>
+          <p class="sr" id="live" role="status" aria-live="polite" aria-atomic="true"></p>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h2>Test</h2>
+          <span class="note" id="matchCount"></span>
+        </div>
+        <div class="panel-body">
+          <textarea id="testInput" rows="4" spellcheck="false" aria-label="Test text"></textarea>
+          <div class="preview" id="preview"></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h2>Matches</h2></div>
+        <div class="panel-body scroll-x" id="matchesBody"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h2>In plain English</h2></div>
+        <div class="panel-body"><ol class="plain" id="plain"></ol></div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<script>
+/*
+  Regex Composer — one file, no build step, no dependencies.
+
+  Data flow is one-way and re-runs from scratch on every change:
+
+      state.blocks ──► build() ──► {pattern, segs, plain} ──► update() ──► DOM
+
+  `state` is the single source of truth. Nothing reads values back out of the
+  DOM except the handlers that wrote them there in the first place.
+
+  There are two rendering paths, and keeping them separate is what makes typing
+  feel smooth:
+
+    renderBlocks()  Rebuilds the block cards. Called ONLY on a structural change
+                    — add, delete, move, duplicate, load an example. It replaces
+                    the DOM wholesale, so calling it mid-keystroke would destroy
+                    the field being typed into.
+
+    update()        Rebuilds the expression readout, match list and explanation.
+                    Called on every edit including each keystroke. Never touches
+                    the block cards.
+
+  So editing a field writes to `state` and calls update() alone; the card you are
+  typing in is left exactly as it is.
+*/
+(function () {
+  "use strict";
+
+  /* ── model ─────────────────────────────────────────────────────────── */
+
+  /* PRESETS / ANCHORS pair each choice with both halves of its output: `src` is
+     the regex fragment, `label` is the phrase reused verbatim in the plain-
+     English list, so the two can never drift apart. */
+
+  var uid = 0;
+  var PRESETS = {
+    digit:    { src: "\\d",        label: "any digit" },
+    nondigit: { src: "\\D",        label: "any non-digit" },
+    word:     { src: "\\w",        label: "any word character (letter, digit or underscore)" },
+    nonword:  { src: "\\W",        label: "any non-word character" },
+    space:    { src: "\\s",        label: "any whitespace" },
+    nonspace: { src: "\\S",        label: "any non-whitespace" },
+    letter:   { src: "[A-Za-z]",   label: "any letter" },
+    lower:    { src: "[a-z]",      label: "any lowercase letter" },
+    upper:    { src: "[A-Z]",      label: "any uppercase letter" },
+    alnum:    { src: "[A-Za-z0-9]",label: "any letter or digit" },
+    any:      { src: ".",          label: "any character" },
+    custom:   { src: null,         label: "a character from a set" }
+  };
+  var ANCHORS = {
+    start:  { src: "^",  label: "the start of the text" },
+    end:    { src: "$",  label: "the end of the text" },
+    wordb:  { src: "\\b",label: "a word boundary" },
+    nwordb: { src: "\\B",label: "a position that is not a word boundary" }
+  };
+  var KIND_LABEL = { literal: "text", "class": "character", choice: "one of",
+                     anchor: "anchor", look: "lookaround", raw: "raw" };
+
+  /* Lookarounds assert what sits either side of a position without consuming it.
+     Zero-width like anchors, so they take no repeat and no capture of their own —
+     though a group written inside one is still a real group (see build). */
+  var LOOKS = {
+    ahead:    { open: "(?=",  label: "followed by" },
+    nahead:   { open: "(?!",  label: "not followed by" },
+    behind:   { open: "(?<=", label: "preceded by" },
+    nbehind:  { open: "(?<!", label: "not preceded by" }
+  };
+
+  /* A capture may be named. JS wants an identifier, and an invalid one is a
+     SyntaxError for the whole pattern, so anything else falls back to a plain
+     numbered group rather than breaking the expression as you type. */
+  var NAME_OK = /^[A-Za-z_$][\w$]*$/;
+  var FLAG_TEXT = {
+    g: "every match", i: "ignore case", m: "^ and $ per line",
+    s: ". matches newlines", u: "unicode"
+  };
+
+  /* Every block carries every field regardless of kind — `text` is only read for
+     a literal, `anchor` only for an anchor. The uniform shape means duplicating
+     a block is a plain clone, and the event handlers can write any field without
+     knowing which kind they are looking at. */
+
+  function isZeroWidth(kind) { return kind === "anchor" || kind === "look"; }
+
+  function newBlock(kind) {
+    return {
+      id: ++uid, kind: kind,
+      text: kind === "literal" ? "" : "",
+      preset: "digit", custom: "a-z", negate: false,
+      options: "cat, dog",
+      anchor: "start",
+      look: "ahead",
+      raw: "",
+      quant: "one", min: 1, max: 3, lazy: false, capture: false, name: ""
+    };
+  }
+
+  var state = { blocks: [], flags: { g: true, i: false, m: false, s: false, u: false } };
+
+  /* ── escaping ──────────────────────────────────────────────────────── */
+
+  /* Three contexts, three different rules — mixing them up is a silent bug:
+
+     escLit    User text used as a literal. Everything meaningful outside a
+               character class gets a backslash. `/` is escaped too: needless for
+               `new RegExp`, but it keeps the displayed /…/ form valid to paste.
+     escClass  User text used INSIDE [...]. Only \\ ] and ^ are special there, and
+               `-` is deliberately left alone so people can type ranges (a-z0-9).
+     escHtml   Anything interpolated into innerHTML. Every render path below
+               builds HTML strings, so user input must pass through this one. */
+
+  function escLit(s) { return s.replace(/[.*+?^${}()|[\]\\\/]/g, "\\$&"); }
+  function escClass(s) { return s.replace(/[\\\]^]/g, "\\$&"); }
+  function escHtml(s) {
+    return s.replace(/[&<>"]/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
+    });
+  }
+
+  /* ── compile one block ─────────────────────────────────────────────── */
+
+  /* compile(block, capIndex) → null if the block is empty (skipped entirely),
+     otherwise { src, kind, desc }:
+         src   the regex fragment this block contributes
+         kind  which token color it gets in the readout
+         desc  its sentence in the plain-English list
+
+     Two local flags decide the bracketing, and they are where the subtle bugs
+     live. Both were wrong at some point:
+
+       atomic      A quantifier can attach directly — `\\d`, `[a-z]`, a single
+                   character. Anything longer needs (?:…) first, or `+` would
+                   repeat only the final character of it.
+
+       needsGroup  Alternation. `cat|dog` must be bracketed to sit in a sequence
+                   at all: unbracketed, `cat|dog` + `s` reads as "cat" OR "dogs".
+
+     Order of operations at the bottom is load-bearing: group if needed, then
+     quantify, then capture. Capturing last is what makes "digit, exactly 4"
+     produce `(\\d{4})` — capturing the year — rather than `(\\d){4}`, which
+     captures only the last digit. */
+
+  function compile(b, capIndex) {
+    var src = null, atomic = true, needsGroup = false, desc = "";
+
+    if (b.kind === "literal") {
+      if (!b.text) return null;
+      src = escLit(b.text);
+      atomic = b.text.length === 1;
+      desc = "the text “" + b.text + "”";
+
+    } else if (b.kind === "class") {
+      if (b.preset === "custom") {
+        var set = b.custom;            // never trim — a space is a legitimate member of a set
+        if (!set) return null;
+        src = "[" + (b.negate ? "^" : "") + escClass(set) + "]";
+        desc = (b.negate ? "any character not in " : "any character in ") + "`" + set + "`";
+      } else {
+        src = PRESETS[b.preset].src;
+        desc = PRESETS[b.preset].label;
+      }
+      atomic = true;
+
+    } else if (b.kind === "choice") {
+      var opts = b.options.split(",").map(function (o) { return o.trim(); }).filter(Boolean);
+      if (!opts.length) return null;
+      if (opts.length === 1) {
+        src = escLit(opts[0]);
+        atomic = opts[0].length === 1;
+        desc = "the text “" + opts[0] + "”";
+      } else {
+        src = opts.map(escLit).join("|");   // bracketed below, once, by whoever needs it
+        atomic = false;
+        needsGroup = true;
+        desc = "one of " + opts.map(function (o) { return "“" + o + "”"; }).join(", ");
+      }
+
+    } else if (b.kind === "anchor") {
+      return { src: ANCHORS[b.anchor].src, kind: "anchor", desc: ANCHORS[b.anchor].label, anchor: true };
+
+    } else if (b.kind === "look") {
+      if (!b.raw) return null;
+      return { src: LOOKS[b.look].open + b.raw + ")", kind: "look",
+               desc: "a position " + LOOKS[b.look].label + " `" + b.raw + "`", anchor: true };
+
+    } else if (b.kind === "raw") {
+      if (!b.raw) return null;
+      src = b.raw;
+      atomic = b.raw.length === 1;
+      desc = "the raw pattern `" + b.raw + "`";
+    }
+
+    // repeat first, capture second — so "digit, exactly 4" captures 2026, not 6
+    var quantified = b.quant !== "one";
+    if (quantified && !atomic) src = "(?:" + src + ")";
+    // alternation still needs bracketing to sit in a sequence — unless a capture does the job
+    else if (!quantified && needsGroup && !b.capture) src = "(?:" + src + ")";
+
+    if (quantified) {
+      var q = "";
+      if (b.quant === "opt") { q = "?"; desc += ", optional"; }
+      else if (b.quant === "plus") { q = "+"; desc += ", one or more times"; }
+      else if (b.quant === "star") { q = "*"; desc += ", any number of times (including none)"; }
+      else if (b.quant === "exact") {
+        var n = clampInt(b.min, 0, 1);
+        q = "{" + n + "}"; desc += ", exactly " + n + " time" + (n === 1 ? "" : "s");
+      } else if (b.quant === "range") {
+        var lo = clampInt(b.min, 0, 1);
+        var hi = String(b.max).trim() === "" ? "" : clampInt(b.max, 0, lo);
+        q = "{" + lo + "," + hi + "}";
+        desc += hi === "" ? ", " + lo + " or more times" : ", between " + lo + " and " + hi + " times";
+      }
+      if (b.lazy && q) { q += "?"; desc += " (as few as possible)"; }
+      src += q;
+    }
+
+    if (b.capture) {
+      var name = String(b.name || "").trim();
+      if (NAME_OK.test(name)) {
+        src = "(?<" + name + ">" + src + ")";
+        desc += " — captured as group " + capIndex + ", named `" + name + "`";
+      } else {
+        src = "(" + src + ")";
+        desc += " — captured as group " + capIndex;
+      }
+    }
+
+    return { src: src, kind: b.kind, desc: desc, anchor: false };
+  }
+
+  function clampInt(v, lo, fallback) {
+    var n = parseInt(v, 10);
+    if (isNaN(n) || n < lo) return fallback;
+    return n;
+  }
+
+  /* Capturing groups written by hand inside a raw fragment are real groups to the
+     regex engine, so they have to be counted or every later number drifts.
+
+     Textual count, not a parse — good enough because it only has to agree with
+     the engine's numbering, and the engine counts "(" the same way:
+       \( and [(]         literal parens, not groups        → removed first
+       (?: (?= (?! (?<= (?<!   non-capturing                → excluded
+       (?<name>           named groups DO capture           → counted */
+
+  function rawGroupCount(src) {
+    return (src
+      .replace(/\\./g, "")
+      .replace(/\[[^\]]*\]/g, "")
+      .match(/\((?!\?)|\(\?<(?![=!])/g) || []).length;
+  }
+
+  /* Concatenates every block's fragment in order.
+
+     `cap` numbers the capture groups so the explanation can say "captured as
+     group 3", and must stay in step with what the engine will assign. A block
+     with the capture box ticked owns its number before any group written inside
+     a raw fragment, because its "(" is emitted first. */
+
+  function build() {
+    var segs = [], plain = [], cap = 0, names = {};
+    state.blocks.forEach(function (b) {
+      if (!isZeroWidth(b.kind) && b.capture) {
+        cap++;
+        var nm = String(b.name || "").trim();
+        if (NAME_OK.test(nm)) names[cap] = nm;   // so the match table can label the column
+      }
+      var c = compile(b, cap);
+      // hand-written groups inside a raw fragment or a lookaround are real groups
+      if (b.kind === "raw" || b.kind === "look") cap += rawGroupCount(b.raw);
+      if (!c) return;
+      c.id = b.id;
+      segs.push(c);
+      plain.push(c.desc);
+    });
+    return { segs: segs, plain: plain, names: names,
+             pattern: segs.map(function (s) { return s.src; }).join("") };
+  }
+
+  function flagString() {
+    return Object.keys(state.flags).filter(function (f) { return state.flags[f]; }).join("");
+  }
+
+  /* ── rendering: blocks ─────────────────────────────────────────────── */
+
+  var blocksEl = document.getElementById("blocks");
+
+  function opt(v, label, sel) {
+    return '<option value="' + v + '"' + (sel === v ? " selected" : "") + ">" + label + "</option>";
+  }
+
+  function fieldsFor(b) {
+    if (b.kind === "literal") {
+      return '<label class="field"><span>matches this text</span>' +
+        '<input type="text" data-f="text" value="' + escHtml(b.text) + '" placeholder="e.g. @example.com" spellcheck="false"></label>';
+    }
+    if (b.kind === "class") {
+      var sel = '<label class="field"><span>character type</span><select data-f="preset">' +
+        opt("digit", "digit  \\d", b.preset) + opt("nondigit", "not a digit  \\D", b.preset) +
+        opt("word", "word char  \\w", b.preset) + opt("nonword", "not a word char  \\W", b.preset) +
+        opt("space", "whitespace  \\s", b.preset) + opt("nonspace", "not whitespace  \\S", b.preset) +
+        opt("letter", "letter  [A-Za-z]", b.preset) + opt("lower", "lowercase  [a-z]", b.preset) +
+        opt("upper", "uppercase  [A-Z]", b.preset) + opt("alnum", "letter or digit", b.preset) +
+        opt("any", "any character  .", b.preset) + opt("custom", "custom set…", b.preset) +
+        "</select></label>";
+      var custom = '<label class="field custom-field"><span>set (ranges allowed)</span>' +
+        '<input type="text" data-f="custom" value="' + escHtml(b.custom) + '" placeholder="a-z0-9._%+-" spellcheck="false"></label>' +
+        '<label class="check custom-field">' +
+        '<input type="checkbox" data-f="negate"' + (b.negate ? " checked" : "") + "> not in set</label>";
+      return sel + custom;
+    }
+    if (b.kind === "choice") {
+      return '<label class="field"><span>alternatives, comma separated</span>' +
+        '<input type="text" data-f="options" value="' + escHtml(b.options) + '" placeholder="http, https" spellcheck="false"></label>';
+    }
+    if (b.kind === "anchor") {
+      return '<label class="field"><span>position</span><select data-f="anchor">' +
+        opt("start", "start of text  ^", b.anchor) + opt("end", "end of text  $", b.anchor) +
+        opt("wordb", "word boundary  \\b", b.anchor) + opt("nwordb", "not a word boundary  \\B", b.anchor) +
+        "</select></label>";
+    }
+    if (b.kind === "look") {
+      return '<label class="field" style="flex:0 0 auto"><span>assert this position is</span><select data-f="look">' +
+        opt("ahead", "followed by\u2026", b.look) + opt("nahead", "not followed by\u2026", b.look) +
+        opt("behind", "preceded by\u2026", b.look) + opt("nbehind", "not preceded by\u2026", b.look) +
+        "</select></label>" +
+        '<label class="field"><span>this pattern</span>' +
+        '<input type="text" data-f="raw" value="' + escHtml(b.raw) + '" placeholder=".*[A-Z]" spellcheck="false"></label>';
+    }
+    return '<label class="field"><span>raw regex fragment</span>' +
+      '<input type="text" data-f="raw" value="' + escHtml(b.raw) + '" placeholder="(?=.*[A-Z])" spellcheck="false"></label>';
+  }
+
+  function footFor(b) {
+    if (isZeroWidth(b.kind)) return "";
+    return '<label class="field" style="flex:0 0 auto"><span>repeat</span><select data-f="quant">' +
+      opt("one", "once", b.quant) + opt("opt", "optional  ?", b.quant) +
+      opt("plus", "one or more  +", b.quant) + opt("star", "zero or more  *", b.quant) +
+      opt("exact", "exactly…", b.quant) + opt("range", "between…", b.quant) +
+      "</select></label>" +
+      '<span class="count-wrap exact"><input type="number" min="0" data-f="min" value="' + b.min + '"><span>times</span></span>' +
+      '<span class="count-wrap range"><input type="number" min="0" data-f="min" value="' + b.min + '"><span>to</span>' +
+      '<input type="number" min="0" data-f="max" value="' + b.max + '" placeholder="∞"><span>times</span></span>' +
+      '<label class="check"><input type="checkbox" data-f="lazy"' + (b.lazy ? " checked" : "") + "> lazy</label>" +
+      '<label class="check"><input type="checkbox" data-f="capture"' + (b.capture ? " checked" : "") + "> capture</label>" +
+      '<label class="field name-field" style="flex:0 0 auto"><span>name (optional)</span>' +
+      '<input type="text" data-f="name" value="' + escHtml(b.name || "") + '" placeholder="year" spellcheck="false"></label>';
+  }
+
+  function renderBlocks() {
+    if (!state.blocks.length) {
+      blocksEl.innerHTML = '<p class="empty-note">No blocks yet — add one below, or load a starter pattern.</p>';
+    } else {
+      blocksEl.innerHTML = state.blocks.map(function (b, i) {
+        return '<div class="block" data-id="' + b.id + '" data-kind="' + b.kind +
+          '" data-preset="' + b.preset + '" data-count="' + b.quant +
+          '" data-cap="' + (b.capture ? "on" : "off") + '">' +
+          '<div class="block-top">' +
+            '<span class="block-seq">' + (i + 1) + "</span>" +
+            '<span class="block-kind">' + KIND_LABEL[b.kind] + "</span>" +
+            '<span class="block-tools">' +
+              '<button class="btn ghost" data-act="up" title="Move up" aria-label="Move up">↑</button>' +
+              '<button class="btn ghost" data-act="down" title="Move down" aria-label="Move down">↓</button>' +
+              '<button class="btn ghost" data-act="dup" title="Duplicate" aria-label="Duplicate">⧉</button>' +
+              '<button class="btn ghost" data-act="del" title="Remove" aria-label="Remove">✕</button>' +
+            "</span>" +
+          "</div>" +
+          '<div class="block-fields">' + fieldsFor(b) + "</div>" +
+          (isZeroWidth(b.kind) ? "" : '<div class="block-foot">' + footFor(b) + "</div>") +
+        "</div>";
+      }).join("");
+    }
+    document.getElementById("blockCount").textContent =
+      state.blocks.length + (state.blocks.length === 1 ? " block" : " blocks");
+  }
+
+  /* ── rendering: output ─────────────────────────────────────────────── */
+
+  var exprEl = document.getElementById("expr"),
+      errEl = document.getElementById("err"),
+      previewEl = document.getElementById("preview"),
+      matchesEl = document.getElementById("matchesBody"),
+      plainEl = document.getElementById("plain"),
+      flagNoteEl = document.getElementById("flagNote"),
+      liveEl = document.getElementById("live"),
+      testEl = document.getElementById("testInput"),
+      matchCountEl = document.getElementById("matchCount"),
+      lengthNoteEl = document.getElementById("lengthNote");
+
+  var current = { pattern: "", flags: "", names: {} };
+
+  /* Screen-reader announcements. Deliberately a short summary in its own hidden
+     region rather than aria-live on the readout: marking up the expression would
+     re-read the whole pattern after every keystroke, which is unusable.
+
+     Debounced for the same reason — typing "abc" should announce the result once,
+     not three times — and skipped when the wording has not changed, since an
+     identical update still gets re-announced by some readers. */
+
+  var liveTimer = null, lastSpoken = "";
+
+  function announce(text) {
+    clearTimeout(liveTimer);
+    liveTimer = setTimeout(function () {
+      if (text === lastSpoken) return;
+      lastSpoken = text;
+      liveEl.textContent = text;
+    }, 700);
+  }
+  var activeId = null;   // block being edited, so its segment can be marked
+
+  /* Rebuilds everything downstream of the blocks. Cheap enough to run on every
+     keystroke — the pattern is short and the match table is capped at 200 rows.
+     An invalid pattern is not a failure state for the whole app: the readout and
+     the explanation still render, and only the testing half reports the error. */
+
+  function update() {
+    var built = build();
+    var flags = flagString();
+    current.pattern = built.pattern;
+    current.flags = flags;
+    current.names = built.names;
+
+    exprEl.innerHTML = built.segs.length
+      ? '<span class="delim">/</span>' +
+        built.segs.map(function (s) {
+          return '<span class="t-' + s.kind + (s.id === activeId ? " seg-active" : "") +
+            '" data-seg="' + s.id + '">' + escHtml(s.src) + "</span>";
+        }).join("") +
+        '<span class="delim">/</span><span class="flags">' + flags + "</span>"
+      : '<span class="placeholder">your expression appears here</span>';
+    lengthNoteEl.textContent = built.pattern.length + " chars";
+
+    // only the ticked flags; :empty collapses the line when none are on
+    flagNoteEl.innerHTML = flags.split("").map(function (f) {
+      return '<span class="k">' + f + "</span> " + FLAG_TEXT[f];
+    }).join(" · ");
+
+    plainEl.innerHTML = built.plain.length
+      ? built.plain.map(function (d, i) {
+          return '<li><span class="n">' + (i + 1) + '.</span><span>' +
+            d.replace(/`([^`]*)`/g, function (_, c) { return "<code>" + escHtml(c) + "</code>"; }) +
+            "</span></li>";
+        }).join("")
+      : '<li class="empty">Nothing to explain yet.</li>';
+
+    var re = null;
+    errEl.innerHTML = "";
+    clearBlame();
+    if (built.pattern) {
+      try {
+        re = new RegExp(built.pattern, flags);
+      } catch (e) {
+        showBlame(built, flags, e);
+      }
+    }
+    runTest(re);
+    syncDock();   // a longer pattern makes the docked bar taller
+    save();
+
+    /* Reads the rendered text back rather than rebuilding the wording, so the
+       announcement always matches what is on screen. */
+    announce(!built.pattern ? "No pattern yet."
+      : !re ? "Invalid expression. " + errEl.textContent
+      : matchCountEl.textContent + ". Pattern: " + built.pattern.length + " characters.");
+  }
+
+  /* Runs the pattern over the test text. `re` is null when the pattern is empty
+     or failed to compile.
+
+     Scanning always uses a `g` copy of the regex so a single exec() loop serves
+     both cases; when the user has not ticked g we just stop after the first hit.
+     Two guards in that loop matter: a zero-length match (`\\d*` against ordinary
+     text) never advances lastIndex by itself and would spin forever, and a hard
+     10k ceiling stops a pathological pattern from locking up the page. */
+
+  /* When a pattern will not compile, work out which block is responsible by
+     removing each fragment in turn: the first one whose absence makes the rest
+     valid is the culprit. Every trial compiles a real full pattern, so a block
+     that is only meaningful in context — a bare "+", an alternation tail — is
+     never blamed for being invalid on its own.
+
+     Kind-agnostic on purpose. Raw fragments are the usual suspects, but a custom
+     set of "z-a" or a "between 5 and 2" quantifier break just as thoroughly.
+
+     Ambiguity is possible: with "(" in one block and ")" in another, removing
+     either compiles, and it blames the first. Returns null when no single block
+     explains the failure, and the caller falls back to the bare message. */
+
+  function blame(segs, flags) {
+    for (var i = 0; i < segs.length; i++) {
+      var without = segs.slice(0, i).concat(segs.slice(i + 1))
+                        .map(function (s) { return s.src; }).join("");
+      try {
+        new RegExp(without, flags);
+        return segs[i].id;
+      } catch (e) { /* still broken without it — keep looking */ }
+    }
+    return null;
+  }
+
+  function clearBlame() {
+    blocksEl.querySelectorAll(".block.is-bad").forEach(function (el) {
+      el.classList.remove("is-bad");
+    });
+  }
+
+  /* The browser reports the whole pattern back at you — "Invalid regular
+     expression: /(unclosed/g: Unterminated group". Only the tail is news. */
+
+  function showBlame(built, flags, err) {
+    var reason = (err.message.match(/:\s([^:]+)$/) || [null, err.message])[1];
+    var id = blame(built.segs, flags), where = "";
+
+    if (id !== null) {
+      var card = blocksEl.querySelector('[data-id="' + id + '"]');
+      if (card) card.classList.add("is-bad");
+      var seg = exprEl.querySelector('[data-seg="' + id + '"]');
+      if (seg) seg.classList.add("seg-bad");
+      for (var i = 0; i < state.blocks.length; i++) {
+        if (state.blocks[i].id === id) {
+          where = "Block " + (i + 1) + " (" + KIND_LABEL[state.blocks[i].kind] + ") — ";
+          break;
+        }
+      }
+    }
+    errEl.innerHTML = '<div class="err">' + escHtml(where + reason) + "</div>";
+  }
+
+  function runTest(re) {
+    var text = testEl.value;
+
+    if (!re) {
+      previewEl.innerHTML = '<span style="color:var(--muted)">' + (escHtml(text) || "Type some test text above.") + "</span>";
+      matchesEl.innerHTML = '<p class="empty-note">No valid expression yet.</p>';
+      matchCountEl.innerHTML = current.pattern ? '<span class="pill bad">invalid</span>' : "";
+      return;
+    }
+
+    var scan = new RegExp(re.source, re.flags.indexOf("g") === -1 ? re.flags + "g" : re.flags);
+    var all = re.flags.indexOf("g") !== -1;
+    var out = "", last = 0, hits = [], m, guard = 0;
+
+    while ((m = scan.exec(text)) !== null) {
+      if (guard++ > 10000) break;
+      hits.push(m);
+      out += escHtml(text.slice(last, m.index));
+      out += m[0].length
+        ? "<mark>" + escHtml(m[0]) + "</mark>"
+        : '<mark class="zero" title="empty match"></mark>';
+      last = m.index + m[0].length;
+      if (m[0].length === 0) scan.lastIndex++;
+      if (!all) break;
+    }
+    out += escHtml(text.slice(last));
+
+    previewEl.innerHTML = out || '<span style="color:var(--muted)">Type some test text above.</span>';
+    matchCountEl.innerHTML = '<span class="pill' + (hits.length ? " hot" : "") + '">' +
+      hits.length + (hits.length === 1 ? " match" : " matches") + "</span>";
+
+    if (!hits.length) {
+      matchesEl.innerHTML = '<p class="empty-note">No matches in the test text.</p>';
+      return;
+    }
+    var groupCount = hits.reduce(function (n, h) { return Math.max(n, h.length - 1); }, 0);
+    var head = "<tr><th>#</th><th>at</th><th>match</th>";
+    for (var g = 1; g <= groupCount; g++) {
+      head += "<th>" + escHtml(current.names[g] || ("$" + g)) + "</th>";
+    }
+    head += "</tr>";
+
+    var clip = function (s) {
+      return '<span class="clip" title="' + escHtml(s) + '">' + escHtml(s) + "</span>";
+    };
+    var rows = hits.slice(0, 200).map(function (h, i) {
+      var r = '<tr><td class="num">' + (i + 1) + '</td><td class="num">' + h.index + "</td><td>" +
+        (h[0].length ? clip(h[0]) : '<span style="color:var(--muted)">∅</span>') + "</td>";
+      for (var g = 1; g <= groupCount; g++) {
+        r += "<td>" + (h[g] === undefined ? '<span style="color:var(--muted)">—</span>' : clip(h[g])) + "</td>";
+      }
+      return r + "</tr>";
+    }).join("");
+
+    matchesEl.innerHTML = "<table class='matches'><thead>" + head + "</thead><tbody>" + rows + "</tbody></table>" +
+      (hits.length > 200 ? '<p class="empty-note">Showing the first 200 of ' + hits.length + ".</p>" : "");
+  }
+
+  /* ── events ────────────────────────────────────────────────────────── */
+
+  /* Everything is delegated from the #blocks container, so cards rendered later
+     need no wiring. The split across three listeners is deliberate:
+
+       input   Text fields. Writes state, calls update(). Never re-renders the
+               cards — that would destroy the field being typed into.
+       change  Selects and checkboxes. Same, plus it syncs the data-* attributes
+               that CSS keys off to show or hide dependent fields.
+       click   Structural edits (move, duplicate, delete). These DO re-render.
+
+     focusin / focusout track which block is being edited so its slice of the
+     expression can be highlighted; update() re-applies that class on every
+     rebuild, since it rewrites the readout's innerHTML each time. */
+
+  function findBlock(el) {
+    var card = el.closest(".block");
+    if (!card) return null;
+    var id = +card.getAttribute("data-id");
+    for (var i = 0; i < state.blocks.length; i++) if (state.blocks[i].id === id) return { b: state.blocks[i], i: i, card: card };
+    return null;
+  }
+
+  blocksEl.addEventListener("input", function (e) {
+    var f = e.target.getAttribute("data-f");
+    if (!f) return;
+    var hit = findBlock(e.target);
+    if (!hit) return;
+    hit.b[f] = e.target.type === "checkbox" ? e.target.checked : e.target.value;
+    if (f === "min" || f === "max") {
+      // both count widgets share the model; keep the hidden twin in sync
+      hit.card.querySelectorAll('[data-f="' + f + '"]').forEach(function (el) {
+        if (el !== e.target) el.value = e.target.value;
+      });
+    }
+    update();
+  });
+
+  blocksEl.addEventListener("change", function (e) {
+    var f = e.target.getAttribute("data-f");
+    if (!f) return;
+    var hit = findBlock(e.target);
+    if (!hit) return;
+    hit.b[f] = e.target.type === "checkbox" ? e.target.checked : e.target.value;
+    if (f === "preset") hit.card.setAttribute("data-preset", hit.b.preset);
+    if (f === "quant") hit.card.setAttribute("data-count", hit.b.quant);
+    if (f === "capture") hit.card.setAttribute("data-cap", hit.b.capture ? "on" : "off");
+    update();
+  });
+
+  function paintActive() {
+    exprEl.querySelectorAll(".seg-active").forEach(function (el) { el.classList.remove("seg-active"); });
+    if (activeId === null) return;
+    var seg = exprEl.querySelector('[data-seg="' + activeId + '"]');
+    if (seg) seg.classList.add("seg-active");
+  }
+
+  blocksEl.addEventListener("focusin", function (e) {
+    var hit = findBlock(e.target);
+    activeId = hit ? hit.b.id : null;
+    paintActive();
+  });
+
+  blocksEl.addEventListener("focusout", function (e) {
+    if (blocksEl.contains(e.relatedTarget)) return;   // just moving between fields
+    activeId = null;
+    paintActive();
+  });
+
+  blocksEl.addEventListener("click", function (e) {
+    var btn = e.target.closest("[data-act]");
+    if (!btn) return;
+    var hit = findBlock(btn);
+    if (!hit) return;
+    var act = btn.getAttribute("data-act");
+    if (act === "del") state.blocks.splice(hit.i, 1);
+    else if (act === "up" && hit.i > 0) state.blocks.splice(hit.i - 1, 0, state.blocks.splice(hit.i, 1)[0]);
+    else if (act === "down" && hit.i < state.blocks.length - 1) state.blocks.splice(hit.i + 1, 0, state.blocks.splice(hit.i, 1)[0]);
+    else if (act === "dup") {
+      var copy = JSON.parse(JSON.stringify(hit.b));
+      copy.id = ++uid;
+      state.blocks.splice(hit.i + 1, 0, copy);
+    }
+    activeId = null;   // the card that had focus is about to be replaced
+    renderBlocks();
+    update();
+  });
+
+  document.querySelectorAll("[data-add]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      state.blocks.push(newBlock(btn.getAttribute("data-add")));
+      renderBlocks();
+      update();
+      var last = blocksEl.querySelector(".block:last-child input, .block:last-child select");
+      if (last) last.focus();
+    });
+  });
+
+  document.getElementById("clearAll").addEventListener("click", function () {
+    state.blocks = [];
+    renderBlocks();
+    update();
+  });
+
+  document.querySelectorAll("[data-flag]").forEach(function (cb) {
+    cb.addEventListener("change", function () {
+      state.flags[cb.getAttribute("data-flag")] = cb.checked;
+      update();
+    });
+  });
+
+  testEl.addEventListener("input", function () { update(); });
+
+  function copy(btn, text) {
+    var done = function () {
+      var old = btn.innerHTML;   // not textContent — the label has responsive spans inside
+      btn.textContent = "Copied";
+      setTimeout(function () { btn.innerHTML = old; }, 1100);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, function () { fallback(text, done); });
+    } else fallback(text, done);
+  }
+  function fallback(text, done) {
+    var ta = document.createElement("textarea");
+    ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand("copy"); done(); } catch (e) {}
+    document.body.removeChild(ta);
+  }
+  document.getElementById("copyFull").addEventListener("click", function () {
+    copy(this, "/" + current.pattern + "/" + current.flags);
+  });
+  document.getElementById("copyRaw").addEventListener("click", function () {
+    copy(this, current.pattern);
+  });
+
+  /* ── starters ──────────────────────────────────────────────────────── */
+
+  function mk(kind, props) { var b = newBlock(kind); for (var k in props) b[k] = props[k]; return b; }
+
+  var EXAMPLES = {
+    email: {
+      test: "Ping me at dana@example.com or support@team.example.org — not at bogus@@nope.",
+      blocks: function () { return [
+        mk("anchor", { anchor: "wordb" }),
+        mk("class", { preset: "custom", custom: "A-Za-z0-9._%+-", quant: "plus" }),
+        mk("literal", { text: "@" }),
+        mk("class", { preset: "custom", custom: "A-Za-z0-9.-", quant: "plus" }),
+        mk("literal", { text: "." }),
+        mk("class", { preset: "letter", quant: "range", min: 2, max: 24 })
+      ]; }
+    },
+    date: {
+      test: "Launch 2026-08-08, review 2026-09-01, invalid 26-1-4.",
+      blocks: function () { return [
+        mk("class", { preset: "digit", quant: "exact", min: 4, capture: true }),
+        mk("literal", { text: "-" }),
+        mk("class", { preset: "digit", quant: "exact", min: 2, capture: true }),
+        mk("literal", { text: "-" }),
+        mk("class", { preset: "digit", quant: "exact", min: 2, capture: true })
+      ]; }
+    },
+    hex: {
+      test: "Brand colors: #0F6E6B, #f7d9a8, #fff and #12345 (too short).",
+      blocks: function () { return [
+        mk("literal", { text: "#" }),
+        mk("class", { preset: "custom", custom: "0-9a-fA-F", quant: "exact", min: 6, capture: true }),
+        mk("anchor", { anchor: "wordb" })
+      ]; }
+    },
+    phone: {
+      test: "Call (415) 555-0132 or 415-555-0199, ext. 4. Also 4155550188.",
+      blocks: function () { return [
+        mk("raw", { raw: "\\(", quant: "opt" }),
+        mk("class", { preset: "digit", quant: "exact", min: 3, capture: true }),
+        mk("raw", { raw: "\\)", quant: "opt" }),
+        mk("class", { preset: "custom", custom: " .-", quant: "opt" }),
+        mk("class", { preset: "digit", quant: "exact", min: 3, capture: true }),
+        mk("class", { preset: "custom", custom: " .-", quant: "opt" }),
+        mk("class", { preset: "digit", quant: "exact", min: 4, capture: true })
+      ]; }
+    },
+    log: {
+      // Apache / nginx "combined" access log: %h %l %u [%t] "%r" %>s %b
+      flags: { g: true, m: true },
+      test: '10.0.0.14 - alice [08/Aug/2026:09:14:22 +0000] "GET /api/patterns?q=regex HTTP/1.1" 200 4213\n' +
+            '192.168.1.7 - - [08/Aug/2026:09:14:23 +0000] "POST /api/patterns HTTP/2.0" 201 87\n' +
+            '172.16.0.3 - bob [08/Aug/2026:09:14:25 +0000] "DELETE /api/patterns/42 HTTP/1.1" 403 -\n' +
+            'this line is not a log line at all',
+      blocks: function () { return [
+        mk("anchor",  { anchor: "start" }),
+        mk("class",   { preset: "nonspace", quant: "plus", capture: true }),   // client IP
+        mk("literal", { text: " " }),
+        mk("class",   { preset: "nonspace", quant: "plus" }),                  // identd, discarded
+        mk("literal", { text: " " }),
+        mk("class",   { preset: "nonspace", quant: "plus", capture: true }),   // user
+        mk("literal", { text: " [" }),
+        mk("class",   { preset: "custom", custom: "]", negate: true, quant: "plus", capture: true }), // timestamp
+        mk("literal", { text: '] "' }),
+        mk("class",   { preset: "upper", quant: "plus", capture: true }),      // method
+        mk("literal", { text: " " }),
+        mk("class",   { preset: "nonspace", quant: "plus", capture: true }),   // path
+        mk("literal", { text: " HTTP/" }),
+        mk("class",   { preset: "custom", custom: "0-9.", quant: "plus", capture: true }), // version
+        mk("literal", { text: '" ' }),
+        mk("class",   { preset: "digit", quant: "exact", min: 3, capture: true }),         // status
+        mk("literal", { text: " " }),
+        mk("raw",     { raw: "(\\d+|-)" })                                     // bytes, or "-"
+      ]; }
+    }
+  };
+
+  document.querySelectorAll("[data-example]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var ex = EXAMPLES[btn.getAttribute("data-example")];
+      state.blocks = ex.blocks();
+      testEl.value = ex.test;
+      // an example may need flags of its own — ^ per line for the log, say
+      state.flags = { g: true, i: false, m: false, s: false, u: false };
+      if (ex.flags) for (var f in ex.flags) state.flags[f] = ex.flags[f];
+      syncFlagBoxes();
+      renderBlocks();
+      update();
+    });
+  });
+
+  /* ── persistence ───────────────────────────────────────────────────── */
+
+  /* Your pattern, flags and test text survive a reload. Stored under its own key,
+     separate from the theme, so clearing one never disturbs the other.
+
+     Writes are debounced because update() runs on every keystroke and there is no
+     reason to hit localStorage that often. Every access is wrapped: private mode,
+     a full quota and sandboxed embeds all throw, and none of them are worth
+     interrupting someone over — the tool simply stops remembering. */
+
+  var SAVE_KEY = "regex-composer-state";
+  var SAVE_VERSION = 1;
+  var saveTimer = null;
+
+  function syncFlagBoxes() {
+    document.querySelectorAll("[data-flag]").forEach(function (cb) {
+      cb.checked = state.flags[cb.getAttribute("data-flag")];
+    });
+  }
+
+  function save() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(function () {
+      try {
+        localStorage.setItem(SAVE_KEY, JSON.stringify({
+          v: SAVE_VERSION, blocks: state.blocks, flags: state.flags, test: testEl.value
+        }));
+      } catch (e) { /* unavailable or full — carry on without persisting */ }
+    }, 250);
+  }
+
+  /* Returns true when it restored something, false to let the caller fall back to
+     the starter pattern. Anything unrecognisable is discarded rather than patched:
+     a bad restore that half-works is harder to diagnose than a fresh start. */
+
+  function restore() {
+    var stored = null;
+    try { stored = localStorage.getItem(SAVE_KEY); } catch (e) { return false; }
+    if (!stored) return false;
+
+    var data;
+    try { data = JSON.parse(stored); } catch (e) { return false; }
+    if (!data || data.v !== SAVE_VERSION || !Array.isArray(data.blocks)) return false;
+
+    /* Each saved block is merged onto a fresh template rather than used directly,
+       so fields added since it was written (name, look, …) get their defaults
+       instead of arriving undefined. Ids are reassigned because they only have to
+       be unique within a session. */
+    var n = 0;
+    state.blocks = data.blocks.map(function (saved) {
+      if (!saved || !KIND_LABEL[saved.kind]) return null;
+      var b = newBlock(saved.kind);
+      for (var k in b) if (saved[k] !== undefined) b[k] = saved[k];
+      b.id = ++n;
+      return b;
+    }).filter(Boolean);
+    uid = n;
+
+    if (data.flags) {
+      for (var f in state.flags) {
+        if (typeof data.flags[f] === "boolean") state.flags[f] = data.flags[f];
+      }
+    }
+    if (typeof data.test === "string") testEl.value = data.test;
+    return true;
+  }
+
+  /* ── theme ─────────────────────────────────────────────────────────── */
+  /* auto follows the system; light/dark stamp data-theme, which the CSS ranks above the media query */
+
+  var THEME_KEY = "regex-composer-theme";
+  var themeBtns = document.querySelectorAll("[data-theme-set]");
+
+  function setTheme(mode, remember) {
+    if (mode === "auto") document.documentElement.removeAttribute("data-theme");
+    else document.documentElement.setAttribute("data-theme", mode);
+    themeBtns.forEach(function (b) {
+      b.setAttribute("aria-pressed", b.getAttribute("data-theme-set") === mode ? "true" : "false");
+    });
+    if (remember) { try { localStorage.setItem(THEME_KEY, mode); } catch (e) {} }
+  }
+
+  themeBtns.forEach(function (b) {
+    b.addEventListener("click", function () { setTheme(b.getAttribute("data-theme-set"), true); });
+  });
+
+  var savedTheme = null;
+  try { savedTheme = localStorage.getItem(THEME_KEY); } catch (e) {}
+  setTheme(savedTheme === "light" || savedTheme === "dark" ? savedTheme : "auto", false);
+
+  /* ── docked expression (narrow screens) ────────────────────────────── */
+
+  var narrow = window.matchMedia("(max-width: 940px)");
+  var exprPanel = document.querySelector(".panel.expression");
+
+  function syncDock() {
+    if (!narrow.matches) { document.body.style.paddingBottom = ""; return; }
+    document.body.style.paddingBottom = (exprPanel.offsetHeight + 24) + "px";
+  }
+  window.addEventListener("resize", syncDock);
+  if (narrow.addEventListener) narrow.addEventListener("change", syncDock);
+
+  // iOS floats the keyboard over fixed elements, which would bury the dock while typing —
+  // the visual viewport tells us how much is covered. No-op where the keyboard resizes the page.
+  if (window.visualViewport) {
+    var vv = window.visualViewport;
+    var lift = function () {
+      if (!narrow.matches) { exprPanel.style.transform = ""; return; }
+      var covered = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+      exprPanel.style.transform = covered > 1 ? "translateY(-" + covered + "px)" : "";
+    };
+    vv.addEventListener("resize", lift);
+    vv.addEventListener("scroll", lift);
+  }
+
+  /* ── boot ──────────────────────────────────────────────────────────── */
+
+  if (!restore()) {
+    state.blocks = EXAMPLES.email.blocks();
+    testEl.value = EXAMPLES.email.test;
+  }
+  syncFlagBoxes();
+  renderBlocks();
+  update();
+})();
+</script>
+</body>
+</html>

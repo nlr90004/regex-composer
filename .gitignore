@@ -1,0 +1,7 @@
+# build scratch — regenerate with `python3 build.py`
+dist/
+
+# local tool config: permission allowlists, machine-specific paths
+.claude/
+
+.DS_Store
