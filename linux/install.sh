@@ -60,7 +60,13 @@ install -m 755 "$HERE/regex-composer.py" "$LIBDIR/regex-composer.py"
 install -m 644 "$PAGE" "$LIBDIR/index.html"
 install -m 644 "$HERE/regex-composer.svg" "$LIBDIR/regex-composer.svg"
 install -m 644 "$HERE/regex-composer.svg" "$ICON"
-install -m 644 "$HERE/regex-composer.desktop" "$DESKTOP"
+# Exec= is rewritten to an absolute path rather than copied verbatim. The
+# checked-in entry says `Exec=regex-composer`, which only resolves if
+# ~/.local/bin is on the session's PATH — and on Ubuntu that is added by
+# ~/.profile at login, so a directory this script just created is not on it
+# until the next login. The launcher would sit there doing nothing.
+sed "s|^Exec=.*|Exec=$BINDIR/regex-composer|" "$HERE/regex-composer.desktop" > "$DESKTOP"
+chmod 644 "$DESKTOP"
 
 # A launcher on PATH, so the .desktop entry's Exec= line resolves.
 cat > "$BINDIR/regex-composer" <<EOF
