@@ -16,12 +16,13 @@ and running it.
 would change under you whenever `docs/` is redeployed. Bundling `docs/index.html`
 keeps the app and the site the same build without coupling them at runtime.
 
-**arm64 only.** The app is not intended to leave the mini, so there is no reason
-to produce a universal binary. If that ever changes, add `x86_64` to `ARCHS` —
-an arm64-only build simply refuses to launch on an Intel Mac, with a message
-that does not obviously say why. As built that is one build:
-`ARCHS="arm64 x86_64" ./macos/build.sh`, and the slices are compiled separately
-and joined, because `swiftc` takes only the last `-target` it is given.
+**~~arm64 only.~~ Universal.** The original reasoning: the app is not intended
+to leave the mini, so there is no reason to produce a universal binary — and an
+arm64-only build simply refuses to launch on an Intel Mac, with a message that
+does not obviously say why. Reversed after the fact, because the second half of
+that turned out to cost more than the first half saved: `ARCHS` now defaults to
+`arm64 x86_64`. The slices are compiled separately and joined, because `swiftc`
+takes only the last `-target` it is given.
 
 **Sign to Run Locally.** Ad-hoc signing is enough for a machine-local app. The
 Apple Developer Program and notarization only become necessary to hand the app

@@ -72,18 +72,19 @@ rm -rf ~/Library/WebKit/wtf.nlr.regex-composer  # everything the page saved
 
 ## Intel Macs
 
-The default build is arm64 only, per MACOS-APP.md. For a universal binary that
-also runs on Intel:
+The build is universal — `arm64` and `x86_64` — superseding the arm64-only
+decision recorded in MACOS-APP.md. For a faster single-architecture build while
+working on it:
 
 ```bash
-ARCHS="arm64 x86_64" ./macos/build.sh
+ARCHS="arm64" ./macos/build.sh
 ```
 
 Each architecture is compiled separately and the slices joined with `lipo`.
 That matters: `swiftc` accepts one `-target` per invocation and silently
 honours the last one, so passing both to a single call produces an Intel-only
 app that will not launch on Apple Silicon — the same unexplained refusal, aimed
-the other way. Make it permanent by changing the `ARCHS` default in `build.sh`.
+the other way.
 
 The x86_64 slice has been run here under Rosetta: it launches, binds the
 loopback port, loads the page and writes storage. That is translation on Apple

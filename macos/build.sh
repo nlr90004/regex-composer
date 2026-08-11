@@ -23,16 +23,15 @@ set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 
-# arm64 only, per MACOS-APP.md: the app is for one Apple Silicon Mac. For a
-# universal build that also runs on Intel, override it for one build —
+# Universal, superseding the arm64-only decision in MACOS-APP.md. Each
+# architecture is compiled separately and the slices joined with lipo: swiftc
+# takes one -target per invocation and silently honours the last one, so
+# passing both in a single call would quietly produce an Intel-only app.
 #
-#     ARCHS="arm64 x86_64" ./macos/build.sh
+# Override for a faster single-architecture build:
 #
-# — or change the default here. Each architecture is compiled separately and
-# the slices are joined with lipo; swiftc takes one -target per invocation and
-# silently honours the last one, so building both in a single call would
-# quietly produce an Intel-only app.
-ARCHS="${ARCHS:-arm64}"
+#     ARCHS="arm64" ./macos/build.sh
+ARCHS="${ARCHS:-arm64 x86_64}"
 DEPLOYMENT_TARGET="13.0"
 APP_NAME="Regex Composer"
 EXECUTABLE="RegexComposer"
