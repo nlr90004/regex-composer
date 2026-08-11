@@ -7,4 +7,6 @@ macos/build/
 # local tool config: permission allowlists, machine-specific paths
 .claude/
 
+__pycache__/
+
 .DS_Store

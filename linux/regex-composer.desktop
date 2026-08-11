@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Regex Composer
+GenericName=Regular Expression Builder
+Comment=Build a regular expression out of labelled blocks
+Exec=regex-composer
+Icon=wtf.nlr.regex-composer
+Terminal=false
+Categories=Development;Utility;TextTools;
+Keywords=regex;regexp;regular expression;pattern;
+StartupNotify=true
+StartupWMClass=regex-composer
