@@ -1,6 +1,9 @@
 # build scratch — regenerate with `python3 build.py`
 dist/
 
+# the assembled .app and the icon it is drawn from — `./macos/build.sh`
+macos/build/
+
 # local tool config: permission allowlists, machine-specific paths
 .claude/
 

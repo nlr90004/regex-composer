@@ -1,7 +1,11 @@
 # Notes toward a macOS app
 
 Design decisions for wrapping this page as a native app, recorded before the
-work starts so they do not have to be re-derived. Nothing here is built yet.
+work starts so they do not have to be re-derived.
+
+**Built.** See `macos/` — the recommended path below, taken as written apart
+from the port, which is corrected in place. `macos/README.md` covers building
+and running it.
 
 **Target:** an M4 Mac mini with Xcode. The app runs only on that machine.
 
@@ -15,7 +19,9 @@ keeps the app and the site the same build without coupling them at runtime.
 **arm64 only.** The app is not intended to leave the mini, so there is no reason
 to produce a universal binary. If that ever changes, add `x86_64` to `ARCHS` —
 an arm64-only build simply refuses to launch on an Intel Mac, with a message
-that does not obviously say why.
+that does not obviously say why. As built that is one build:
+`ARCHS="arm64 x86_64" ./macos/build.sh`, and the slices are compiled separately
+and joined, because `swiftc` takes only the last `-target` it is given.
 
 **Sign to Run Locally.** Ad-hoc signing is enough for a machine-local app. The
 Apple Developer Program and notarization only become necessary to hand the app
@@ -36,10 +42,15 @@ one:
 
 Three ways that do work, in the order I would try them:
 
-1. **Loopback HTTP server.** An `NWListener` bound to `127.0.0.1` on an
-   ephemeral port, serving the single bundled file. Roughly 60 lines. Gives a
-   normal `http://127.0.0.1:PORT` origin, so storage behaves exactly as it does
-   in a browser, and the app stays fully offline. This is the recommended path.
+1. **Loopback HTTP server.** An `NWListener` bound to `127.0.0.1`, serving the
+   single bundled file. Roughly 60 lines. Gives a normal `http://127.0.0.1:PORT`
+   origin, so storage behaves exactly as it does in a browser, and the app stays
+   fully offline. This is the recommended path.
+
+   ~~an ephemeral port~~ — wrong, and wrong in the way this whole section is
+   about. The origin is scheme, host *and port*, so an ephemeral port is a new
+   origin on every launch and storage is empty on every launch. Pick a fixed
+   port, remember what was bound, and prefer it next time.
 2. **Load the live site.** Zero extra code and a real origin, at the cost of
    requiring the network.
 3. **Replace `localStorage` with `UserDefaults`** bridged over a

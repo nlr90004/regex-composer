@@ -30,6 +30,7 @@ regex-builder.html   the working draft — heavily commented, source of record
 build.py             runs the tests, strips the comments, writes the outputs
 test.js              81 checks over the pure core, no dependencies
 docs/index.html      the published site (GitHub Pages serves /docs)
+macos/               a native macOS wrapper around docs/index.html
 ```
 
 `regex-builder.html` keeps every explanatory comment on purpose. `build.py`
@@ -41,6 +42,7 @@ shipped page never diverge by hand.
 ```bash
 node test.js       # 81 checks
 python3 build.py   # tests, then rebuild docs/ and dist/
+./macos/build.sh   # the macOS app, from whatever docs/ currently holds
 ```
 
 `build.py` refuses to write anything if the suite fails, so what is published
