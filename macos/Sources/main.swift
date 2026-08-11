@@ -150,7 +150,11 @@ final class LoopbackServer {
     }
 
     private func respond(to head: (method: String, target: String), on connection: NWConnection) {
-        let path = head.target.split(separator: "?", maxSplits: 1)[0]
+        // Everything before the query. Not split(separator:"?")[0]: split drops
+        // empty pieces, so a target of "?" yields an empty array and the
+        // subscript traps — a malformed request from any local process would
+        // take the app down with it.
+        let path = head.target.prefix { $0 != "?" }
         let wantsPage = (path == "/" || path == "/index.html")
         let allowedMethod = (head.method == "GET" || head.method == "HEAD")
 
@@ -310,13 +314,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
         }
     }
 
+    /// Cancelling a navigation in `decidePolicyFor` — which is how an external
+    /// link gets handed to the browser — comes back here as a failure with
+    /// NSURLErrorCancelled. Treating that as a real failure would quit the app
+    /// every time you followed a link out of it.
+    private func isCancellation(_ error: Error) -> Bool {
+        let error = error as NSError
+        return error.domain == NSURLErrorDomain && error.code == NSURLErrorCancelled
+    }
+
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+        guard !isCancellation(error) else { return }
         fail("The page failed to load.", error.localizedDescription)
     }
 
     func webView(_ webView: WKWebView,
                  didFailProvisionalNavigation navigation: WKNavigation!,
                  withError error: Error) {
+        guard !isCancellation(error) else { return }
         fail("The page failed to load.", error.localizedDescription)
     }
 

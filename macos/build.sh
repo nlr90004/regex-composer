@@ -6,12 +6,13 @@
 #     ./macos/build.sh --run      build and launch it
 #
 # No Xcode project: this compiles one Swift file and lays out the bundle by
-# hand. Xcode itself is still required, because swiftc needs the macOS SDK.
+# hand. It needs a macOS SDK, which either Xcode or the Command Line Tools
+# provide — `xcode-select --install` is enough, Xcode is not required.
 #
 # Choices this script encodes, from MACOS-APP.md:
-#   arm64 only          the app is for one Mac mini; a universal binary would
-#                       be build time spent on nothing. Adding x86_64 to ARCHS
-#                       below is the whole change if that stops being true.
+#   universal           arm64 + x86_64, so one build runs on both the mini and
+#                       the Intel MacBook. This reverses the arm64-only decision
+#                       in the notes; see the ARCHS comment below for why.
 #   ad-hoc signature    "Sign to Run Locally". Enough for a machine-local app;
 #                       the Developer Program and notarization only matter for
 #                       handing the app to someone else.
@@ -54,7 +55,9 @@ if [ "$ROOT/regex-builder.html" -nt "$PAGE" ]; then
 fi
 
 if ! xcrun --sdk macosx --show-sdk-path >/dev/null 2>&1; then
-	echo "build.sh: no macOS SDK. Install Xcode and run 'sudo xcode-select --switch /Applications/Xcode.app'" >&2
+	echo "build.sh: no macOS SDK. Install the Command Line Tools with" >&2
+	echo "          'xcode-select --install', or point at Xcode with" >&2
+	echo "          'sudo xcode-select --switch /Applications/Xcode.app'" >&2
 	exit 1
 fi
 
